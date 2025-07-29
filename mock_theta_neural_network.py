@@ -311,12 +311,16 @@ class NeuralNetwork(MockThetaFunction, nn.Module):
         :param save_path: Optional path to save the plot
         """
         fig, axes = plt.subplots(2, 2, figsize=(15, 10))
-        epochs = range(1, len(history['train_losses']) + 1)
+        
+        # Use the minimum length to handle early stopping cases
+        min_length = min(len(history['train_losses']), len(history['epoch_times']), len(history['theta_values']))
+        epochs = range(1, min_length + 1)
         
         # Plot training and validation loss
-        axes[0, 0].plot(epochs, history['train_losses'], 'b-', label='Training Loss')
-        if history['val_losses']:
-            axes[0, 0].plot(epochs, history['val_losses'], 'r-', label='Validation Loss')
+        axes[0, 0].plot(epochs, history['train_losses'][:min_length], 'b-', label='Training Loss')
+        if history['val_losses'] and len(history['val_losses']) > 0:
+            val_epochs = range(1, min(len(history['val_losses']), min_length) + 1)
+            axes[0, 0].plot(val_epochs, history['val_losses'][:len(val_epochs)], 'r-', label='Validation Loss')
         axes[0, 0].set_title('Training and Validation Loss')
         axes[0, 0].set_xlabel('Epoch')
         axes[0, 0].set_ylabel('Loss')
@@ -324,9 +328,10 @@ class NeuralNetwork(MockThetaFunction, nn.Module):
         axes[0, 0].grid(True)
         
         # Plot training and validation accuracy
-        axes[0, 1].plot(epochs, history['train_accuracies'], 'b-', label='Training Accuracy')
-        if history['val_accuracies']:
-            axes[0, 1].plot(epochs, history['val_accuracies'], 'r-', label='Validation Accuracy')
+        axes[0, 1].plot(epochs, history['train_accuracies'][:min_length], 'b-', label='Training Accuracy')
+        if history['val_accuracies'] and len(history['val_accuracies']) > 0:
+            val_epochs = range(1, min(len(history['val_accuracies']), min_length) + 1)
+            axes[0, 1].plot(val_epochs, history['val_accuracies'][:len(val_epochs)], 'r-', label='Validation Accuracy')
         axes[0, 1].set_title('Training and Validation Accuracy')
         axes[0, 1].set_xlabel('Epoch')
         axes[0, 1].set_ylabel('Accuracy')
@@ -334,7 +339,7 @@ class NeuralNetwork(MockThetaFunction, nn.Module):
         axes[0, 1].grid(True)
         
         # Plot theta function evolution (real part)
-        theta_real = [theta.real for theta in history['theta_values']]
+        theta_real = [theta.real for theta in history['theta_values'][:min_length]]
         axes[1, 0].plot(epochs, theta_real, 'g-', label='Theta Function (Real)')
         axes[1, 0].set_title('Mock Theta Function Evolution (Real Part)')
         axes[1, 0].set_xlabel('Epoch')
@@ -343,7 +348,7 @@ class NeuralNetwork(MockThetaFunction, nn.Module):
         axes[1, 0].grid(True)
         
         # Plot epoch times
-        axes[1, 1].plot(epochs, history['epoch_times'], 'm-', label='Epoch Time')
+        axes[1, 1].plot(epochs, history['epoch_times'][:min_length], 'm-', label='Epoch Time')
         axes[1, 1].set_title('Training Time per Epoch')
         axes[1, 1].set_xlabel('Epoch')
         axes[1, 1].set_ylabel('Time (seconds)')
@@ -470,7 +475,8 @@ def create_sample_data(n_samples: int = 1000, input_size: int = 10, noise_level:
     
     # Create a simple target function (sum of squares with some weights)
     weights = torch.randn(input_size) * 0.5
-    y = torch.sum(X * weights, dim=1, keepdim=True) + noise_level * torch.randn(n_samples, 1)
+    # Ensure proper broadcasting by expanding weights to match X shape
+    y = torch.sum(X * weights.unsqueeze(0), dim=1, keepdim=True) + noise_level * torch.randn(n_samples, 1)
     
     return X, y
 
